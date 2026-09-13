@@ -1,8 +1,9 @@
 """Extension Nautilus : "Copier le lien Nextcloud" dans le menu clic droit.
 
-Installation : lier/copier ce fichier dans
-~/.local/share/nautilus-python/extensions/nextplorer_nautilus.py puis redémarrer
-Nautilus (nautilus -q).
+Installée automatiquement par `nextplorer install-integration` (voir
+nextplorer/deskenv.py) — ce fichier est embarqué comme donnée du package et
+copié vers ~/.local/share/nautilus-python/extensions/, pas exécuté tel quel
+depuis les sources.
 """
 import subprocess
 from urllib.parse import unquote, urlsplit

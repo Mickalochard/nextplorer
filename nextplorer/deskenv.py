@@ -6,16 +6,22 @@ import os
 import shutil
 import subprocess
 import sys
+from importlib import resources
 from pathlib import Path
 
 from .setup import SYSTEMD_UNIT_NAME
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-NAUTILUS_EXT_SOURCE = PROJECT_ROOT / "nautilus-extension" / "nextplorer_nautilus.py"
-NAUTILUS_EXT_TARGET = Path.home() / ".local" / "share" / "nautilus-python" / "extensions" / "nextplorer_nautilus.py"
+# Les fichiers d'intégration sont embarqués comme données du package
+# (nextplorer/_integrations/), pas lus depuis le dépôt cloné : une fois
+# installé via pip, le code vit dans site-packages, plus à côté du dépôt.
+_INTEGRATIONS_PKG = "nextplorer._integrations"
 
-KDE_SERVICEMENU_SOURCE = PROJECT_ROOT / "kde-integration" / "nextplorer.desktop"
+NAUTILUS_EXT_TARGET = Path.home() / ".local" / "share" / "nautilus-python" / "extensions" / "nextplorer_nautilus.py"
 KDE_SERVICEMENU_TARGET = Path.home() / ".local" / "share" / "kio" / "servicemenus" / "nextplorer.desktop"
+
+
+def _integration_bytes(filename: str) -> bytes:
+    return resources.files(_INTEGRATIONS_PKG).joinpath(filename).read_bytes()
 
 
 def _current_desktop() -> str:
@@ -26,14 +32,14 @@ def _install_gnome() -> None:
     NAUTILUS_EXT_TARGET.parent.mkdir(parents=True, exist_ok=True)
     if NAUTILUS_EXT_TARGET.exists() or NAUTILUS_EXT_TARGET.is_symlink():
         NAUTILUS_EXT_TARGET.unlink()
-    NAUTILUS_EXT_TARGET.symlink_to(NAUTILUS_EXT_SOURCE)
+    NAUTILUS_EXT_TARGET.write_bytes(_integration_bytes("nautilus_extension.py"))
     subprocess.run(["nautilus", "-q"], check=False)
     print(f"Extension Nautilus installée ({NAUTILUS_EXT_TARGET}).")
 
 
 def _install_kde() -> None:
     KDE_SERVICEMENU_TARGET.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(KDE_SERVICEMENU_SOURCE, KDE_SERVICEMENU_TARGET)
+    KDE_SERVICEMENU_TARGET.write_bytes(_integration_bytes("nextplorer.desktop"))
     KDE_SERVICEMENU_TARGET.chmod(0o755)  # Dolphin ignore les menus de service non exécutables
     for tool in ("kbuildsycoca6", "kbuildsycoca5"):
         if shutil.which(tool):
