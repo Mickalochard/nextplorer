@@ -5,13 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nextplorer"
 version = "0.1.0"
-description = "Portable Nextcloud links + application-level locking for Nautilus/Dolphin"
+description = "Portable Nextcloud links + application-level locking for Nautilus/Dolphin/Explorer"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 dependencies = [
     "requests",
     "cryptography",
+    "psutil",
+    "pyperclip; sys_platform == 'win32'",
+    "win11toast; sys_platform == 'win32'",
 ]
 
 [project.scripts]

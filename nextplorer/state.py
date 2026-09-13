@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-STATE_PATH = Path.home() / ".config" / "nextplorer" / "state.json"
+from .paths import user_config_dir
+
+STATE_PATH = user_config_dir("nextplorer") / "state.json"
 
 
 def load() -> dict:

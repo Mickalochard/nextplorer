@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import webdav
+from . import platform, webdav
 from .config import Config
 from .webdav import LockInfo
 
@@ -33,10 +33,6 @@ def is_office_document(local_path: str) -> bool:
 def _sidecar_lock_path(local_path: Path) -> Path:
     """Fichier de verrou que LibreOffice crée/supprime lui-même à côté du document ouvert."""
     return local_path.parent / f".~lock.{local_path.name}#"
-
-
-def _libreoffice_running() -> bool:
-    return subprocess.run(["pgrep", "-x", "soffice.bin"], stdout=subprocess.DEVNULL).returncode == 0
 
 
 def format_duration(seconds: int) -> str:
@@ -90,7 +86,7 @@ def watch_and_release(config: Config, relative_path: str, local_path: str) -> No
         time.sleep(POLL_INTERVAL_SECONDS)
 
     last_renew = time.monotonic()
-    while sidecar.exists() and _libreoffice_running():
+    while sidecar.exists() and platform.is_office_app_running():
         time.sleep(POLL_INTERVAL_SECONDS)
         if time.monotonic() - last_renew > RENEW_INTERVAL_SECONDS:
             webdav.acquire_lock(config.account, relative_path, LOCK_TIMEOUT_SECONDS)

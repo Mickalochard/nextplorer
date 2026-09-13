@@ -10,8 +10,10 @@ from pathlib import Path
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-CONFIG_PATH = Path.home() / ".config" / "nextplorer" / "config.json"
-RCLONE_CONF_PATH = Path.home() / ".config" / "rclone" / "rclone.conf"
+from .paths import user_config_dir
+
+CONFIG_PATH = user_config_dir("nextplorer") / "config.json"
+RCLONE_CONF_PATH = user_config_dir("rclone") / "rclone.conf"
 
 
 @dataclasses.dataclass

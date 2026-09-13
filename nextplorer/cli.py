@@ -2,49 +2,25 @@
 from __future__ import annotations
 
 import argparse
-import configparser
 import re
-import shlex
-import shutil
-import subprocess
 import sys
 import time
-from pathlib import Path
 from urllib.parse import urlsplit
 
 import requests
 
-from . import deskenv, lockwatch, pathmap, setup, state, webdav
+from . import lockwatch, pathmap, platform, setup, webdav
 from .config import CONFIG_PATH, Config, load_config
 
 FILEID_IN_URL = re.compile(r"/f/(\d+)(?:[/?#]|$)")
-HANDLER_DESKTOP_ID = "nextplorer-open.desktop"
-DESKTOP_DIR = Path.home() / ".local" / "share" / "applications"
 
 
 def _notify(title: str, body: str, icon: str = "folder-remote") -> None:
-    if shutil.which("notify-send"):
-        subprocess.run(["notify-send", "--icon", icon, title, body], check=False)
+    platform.notify(title, body, icon)
 
 
 def _copy_to_clipboard(text: str) -> bool:
-    # wl-copy et xclip se détachent en arrière-plan pour continuer à servir le
-    # presse-papiers après leur retour ; sans ça ils héritent de notre
-    # stdout/stderr et un appelant qui lit jusqu'à l'EOF (`$(...)`, `| tail`)
-    # reste bloqué indéfiniment tant que ce processus détaché vit.
-    if shutil.which("wl-copy"):
-        subprocess.run(
-            ["wl-copy"], input=text.encode(), check=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        return True
-    if shutil.which("xclip"):
-        subprocess.run(
-            ["xclip", "-selection", "clipboard"], input=text.encode(), check=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        return True
-    return False
+    return platform.copy_to_clipboard(text)
 
 
 def cmd_resolve(config: Config, path: str) -> str:
@@ -74,7 +50,7 @@ def _open_local(config: Config, relative: str, local_path: str) -> None:
     """Ouvre le fichier local, en tenant compte du verrou applicatif pour les
     documents bureautiques (phase 2 : nextplorer-lock-watch)."""
     if not lockwatch.is_office_document(local_path):
-        subprocess.run(["xdg-open", local_path], check=False)
+        platform.open_path(local_path)
         return
 
     lock = lockwatch.foreign_lock(config, relative)
@@ -121,49 +97,12 @@ def cmd_open(config: Config, url_or_fileid: str) -> int:
         local_path = pathmap.relative_to_local(config, relative)
     except (webdav.NotFoundError, FileNotFoundError, requests.RequestException) as exc:
         print(f"Résolution locale impossible ({exc}) — ouverture dans le navigateur.", file=sys.stderr)
-        subprocess.run(["xdg-open", url_or_fileid], check=False)
+        platform.launch_browser(url_or_fileid)
         return 1
 
     _open_local(config, relative, local_path)
     print(local_path)
     return 0
-
-
-_DESKTOP_APP_DIRS = [
-    Path.home() / ".local" / "share" / "applications",
-    Path("/usr/local/share/applications"),
-    Path("/usr/share/applications"),
-    Path.home() / ".local" / "share" / "flatpak" / "exports" / "share" / "applications",
-    Path("/var/lib/flatpak/exports/share/applications"),
-]
-_DESKTOP_FIELD_CODE_RE = re.compile(r"%[fFuUdDnNickvm]")
-
-
-def _resolve_desktop_exec(desktop_id: str) -> list[str] | None:
-    """Résout la commande Exec= d'un .desktop, sans dépendre de gtk-launch
-    (absent sous KDE sans paquets GTK) ni de gio (GNOME/GLib uniquement)."""
-    for directory in _DESKTOP_APP_DIRS:
-        candidate = directory / desktop_id
-        if not candidate.is_file():
-            continue
-        parser = configparser.ConfigParser(interpolation=None)
-        parser.read(candidate)
-        exec_line = parser.get("Desktop Entry", "Exec", fallback=None)
-        if not exec_line:
-            return None
-        return shlex.split(_DESKTOP_FIELD_CODE_RE.sub("", exec_line))
-    return None
-
-
-def _launch_fallback_browser(url: str) -> None:
-    """Ouvre un lien dans le VRAI navigateur — jamais via xdg-open, qui reboucle sur nous."""
-    saved_browser = state.load().get("fallback_browser_desktop")
-    if saved_browser:
-        command = _resolve_desktop_exec(saved_browser)
-        if command:
-            subprocess.run([*command, url], check=False)
-            return
-    subprocess.run(["xdg-open", url], check=False)
 
 
 def cmd_handle_url(config: Config, url: str) -> int:
@@ -172,7 +111,7 @@ def cmd_handle_url(config: Config, url: str) -> int:
     match = FILEID_IN_URL.search(url)
 
     if urlsplit(url).hostname != account_host or not match:
-        _launch_fallback_browser(url)
+        platform.launch_browser(url)
         return 0
 
     fileid = match.group(1)
@@ -181,7 +120,7 @@ def cmd_handle_url(config: Config, url: str) -> int:
         local_path = pathmap.relative_to_local(config, relative)
     except (webdav.NotFoundError, FileNotFoundError, requests.RequestException) as exc:
         _notify("Lien Nextcloud", f"Pas trouvé localement, ouverture dans le navigateur ({exc})", icon="dialog-warning")
-        _launch_fallback_browser(url)
+        platform.launch_browser(url)
         return 0
 
     _open_local(config, relative, local_path)
@@ -189,57 +128,18 @@ def cmd_handle_url(config: Config, url: str) -> int:
 
 
 def cmd_install_handler(config: Config) -> int:
-    """Fait de nextplorer le gestionnaire des liens https : Nextcloud ouvre en local, le reste va au navigateur."""
-    current = subprocess.run(
-        ["xdg-mime", "query", "default", "x-scheme-handler/https"],
-        capture_output=True, text=True, check=False,
-    ).stdout.strip()
-
-    saved = state.load()
-    if current and current != HANDLER_DESKTOP_ID and "fallback_browser_desktop" not in saved:
-        saved["fallback_browser_desktop"] = current
-        state.save(saved)
-
-    DESKTOP_DIR.mkdir(parents=True, exist_ok=True)
-    nextplorer_bin = shutil.which("nextplorer") or str(Path(__file__).resolve().parent.parent / "bin" / "nextplorer")
-    (DESKTOP_DIR / HANDLER_DESKTOP_ID).write_text(
-        "[Desktop Entry]\n"
-        "Type=Application\n"
-        "Name=nextplorer (ouverture Nextcloud)\n"
-        "NoDisplay=true\n"
-        f"Exec={nextplorer_bin} handle-url %u\n"
-        "MimeType=x-scheme-handler/https;\n"
-        "Terminal=false\n"
-    )
-    if shutil.which("update-desktop-database"):
-        subprocess.run(["update-desktop-database", str(DESKTOP_DIR)], check=False)
-
-    subprocess.run(["xdg-mime", "default", HANDLER_DESKTOP_ID, "x-scheme-handler/https"], check=True)
-
     account_host = urlsplit(config.account.base_url).hostname
-    print(f"Gestionnaire installé pour https://{account_host}/f/…")
-    print(f"Navigateur conservé pour tous les autres liens : {state.load().get('fallback_browser_desktop', '?')}")
-    return 0
+    return platform.install_url_handler(account_host)
 
 
 def cmd_uninstall_handler(config: Config) -> int:
-    previous = state.load().get("fallback_browser_desktop")
-    if not previous:
-        print("Aucun navigateur précédent enregistré — rien à restaurer.", file=sys.stderr)
-        return 1
-    subprocess.run(["xdg-mime", "default", previous, "x-scheme-handler/https"], check=True)
-    print(f"Navigateur par défaut restauré : {previous}")
-    return 0
+    return platform.uninstall_url_handler()
 
 
 def cmd_doctor(config: Config) -> int:
     if CONFIG_PATH.exists():
         print(f"Config           : {CONFIG_PATH} (créée par `nextplorer setup`)")
-        status = subprocess.run(
-            ["systemctl", "--user", "is-active", setup.SYSTEMD_UNIT_NAME],
-            capture_output=True, text=True,
-        )
-        print(f"Montage systemd  : {status.stdout.strip() or 'inconnu'} ({setup.SYSTEMD_UNIT_NAME})")
+        print(f"Montage          : {platform.mount_status_summary()} ({platform.MOUNT_NAME})")
     else:
         print("Config           : détection automatique via rclone.conf (legacy — lance `nextplorer setup` pour fixer une config explicite)")
 
@@ -300,10 +200,15 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("uninstall-handler", help="Restaurer le navigateur par défaut d'origine")
 
     sub.add_parser("setup", help="Configurer nextplorer (serveur, identifiants, montage permanent)")
-    sub.add_parser("install-integration", help="Ajouter le clic-droit dans le gestionnaire de fichiers (Nautilus/Dolphin)")
+    sub.add_parser("install-integration", help="Ajouter le clic-droit dans le gestionnaire de fichiers (Nautilus/Dolphin/Explorateur)")
 
-    p_mount = sub.add_parser("mount", help="Piloter le montage géré par nextplorer (service systemd --user)")
+    p_mount = sub.add_parser("mount", help="Piloter le montage géré par nextplorer")
     p_mount.add_argument("action", choices=["status", "start", "stop"])
+
+    sub.add_parser(
+        "export-gpo-xml",
+        help="[Windows] Générer le XML d'association par défaut pour déploiement GPO/Intune",
+    )
 
     sub.add_parser("doctor", help="Vérifier la configuration et la connexion")
 
@@ -316,9 +221,11 @@ def main(argv: list[str] | None = None) -> int:
             print("\nConfiguration interrompue.", file=sys.stderr)
             return 130
     if args.command == "install-integration":
-        return deskenv.install_integration()
+        return platform.install_file_manager_integration()
     if args.command == "mount":
-        return deskenv.mount_control(args.action)
+        return platform.mount_control(args.action)
+    if args.command == "export-gpo-xml":
+        return platform.export_gpo_xml()
 
     try:
         config = load_config()
