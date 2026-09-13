@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=all/allfiles;
+Actions=CopyLink;ShareLink;
+
+[Desktop Action CopyLink]
+Name=Copier le lien Nextcloud
+Icon=folder-remote
+Exec=nextplorer copy %f
+
+[Desktop Action ShareLink]
+Name=Copier un lien externe (public)
+Icon=emblem-shared
+Exec=nextplorer share %f
