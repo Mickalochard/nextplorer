@@ -10,7 +10,7 @@ Set-Location $PSScriptRoot
 Write-Host "=== Installation de nextplorer ==="
 python -m pip install --user .
 
-$userScripts = python -c "import site, os; print(os.path.join(site.getuserbase(), 'Scripts'))"
+$userScripts = python -c "import sysconfig; print(sysconfig.get_path('scripts', 'nt_user'))"
 if (-not ($env:Path -split ";" | Where-Object { $_ -eq $userScripts })) {
     Write-Host ""
     Write-Host "Attention : $userScripts n'est pas dans ton PATH."
