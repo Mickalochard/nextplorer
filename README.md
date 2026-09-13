@@ -31,14 +31,17 @@ at once, and one-click public share links.
 
 ## Requirements
 
-- Linux with GNOME or KDE Plasma (Windows/macOS are not supported).
+- Linux (GNOME or KDE Plasma) or Windows 10/11 — see
+  [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md) for the Windows build and
+  enterprise (GPO/Intune) deployment story. macOS isn't supported.
 - A Nextcloud server (tested against Nextcloud 33; the native locking API
   has been available since around Nextcloud 24-25).
-- `python3`, `rclone`, `systemd` (for the permanent mount), and the Python
-  packages `requests` and `cryptography`.
-- Clipboard: `wl-copy` (Wayland) or `xclip` (X11). Notifications:
-  `notify-send`. GNOME integration additionally needs `nautilus-python`; KDE
-  needs nothing extra (uses Dolphin's built-in service menu mechanism).
+- `python3`, `rclone`, and the Python packages `requests` and `cryptography`.
+- Linux only: `systemd` (permanent mount), `wl-copy`/`xclip` (clipboard),
+  `notify-send` (notifications). GNOME integration needs `nautilus-python`;
+  KDE needs nothing extra (Dolphin's built-in service menu mechanism).
+- Windows only: [WinFsp](https://winfsp.dev) (required by rclone to mount a
+  network drive), LibreOffice if you want application-level locking.
 
 ## Installation
 
@@ -113,7 +116,14 @@ colleague's work is worse than occasionally missing one.
 - The KDE Dolphin service menu was written and checked against KDE's
   documentation but not tested on a real Plasma session (this project is
   developed on GNOME) — reports/fixes welcome.
-- Windows and macOS are out of scope.
+- **Windows**: this project is developed on Linux, so `nextplorer/platform/windows.py`
+  is written against Microsoft/rclone/WinFsp documentation but not yet
+  validated on a real Windows machine — treat it as a first draft. On a
+  single, unmanaged Windows PC, making nextplorer the default `https` handler
+  still requires one manual click in Settings (Windows blocks doing this
+  programmatically, by design, since Windows 8); on an IT-managed fleet, see
+  [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md) for the GPO/Intune mechanism
+  that avoids that entirely. macOS is out of scope.
 
 ## License
 

@@ -56,11 +56,15 @@ monte automatiquement au démarrage, et écrit
 par défaut actuel et le restaure avec `nextplorer uninstall-handler` en cas de
 besoin — seuls les liens vers ton serveur Nextcloud sont interceptés.
 
-Dépendances système : `python3`, `rclone`, `systemd` (montage permanent),
-le module Python `requests`, le module `cryptography`. Presse-papiers :
-`wl-copy` (Wayland) ou `xclip` (X11). Notifications : `notify-send`.
-Intégration GNOME : `nautilus-python`. Intégration KDE : rien de plus
-(mécanisme natif Dolphin).
+Dépendances système : `python3`, `rclone`, le module Python `requests`, le
+module `cryptography`. Sous Linux : `systemd` (montage permanent),
+`wl-copy` (Wayland) ou `xclip` (X11) pour le presse-papiers, `notify-send`
+pour les notifications ; intégration GNOME via `nautilus-python`,
+intégration KDE sans rien de plus (mécanisme natif Dolphin). Sous Windows :
+[WinFsp](https://winfsp.dev) (requis par rclone pour monter un lecteur
+réseau), LibreOffice si tu veux le verrouillage applicatif — voir
+[docs/BUILD_WINDOWS.md](BUILD_WINDOWS.md) pour le build `.exe` et le
+déploiement sur un parc de postes géré (GPO/Intune).
 
 ### Poste déjà configuré avant `nextplorer setup`
 
@@ -119,4 +123,11 @@ nextplorer mount status           # état du montage géré par nextplorer (si `
 - L'intégration KDE (menu de service Dolphin) n'a été validée que contre la
   documentation KDE, pas testée en conditions réelles (poste de
   développement sous GNOME).
-- Windows et macOS ne sont pas supportés.
+- **Windows** : développé sur Linux, donc `nextplorer/platform/windows.py`
+  est écrit d'après la documentation Microsoft/rclone/WinFsp mais pas encore
+  validé sur une vraie machine Windows — à considérer comme un premier jet.
+  Sur un poste isolé (non géré), faire de nextplorer le gestionnaire `https`
+  par défaut demande toujours un clic manuel dans les Paramètres (Windows
+  bloque ce choix par programme depuis Windows 8) ; sur un parc géré par
+  l'IT, voir [docs/BUILD_WINDOWS.md](BUILD_WINDOWS.md) pour le mécanisme
+  GPO/Intune qui l'évite complètement. macOS n'est pas supporté.
