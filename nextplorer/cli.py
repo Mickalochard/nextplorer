@@ -310,7 +310,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "setup":
-        return setup.run_setup()
+        try:
+            return setup.run_setup()
+        except (EOFError, KeyboardInterrupt):
+            print("\nConfiguration interrompue.", file=sys.stderr)
+            return 130
     if args.command == "install-integration":
         return deskenv.install_integration()
     if args.command == "mount":

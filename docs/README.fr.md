@@ -34,17 +34,21 @@ document par deux collègues, et la création rapide de liens externes publics.
 ```sh
 git clone <ce dépôt>
 cd nextplorer
-python3 -m pip install --user .
+./install.sh
+```
 
-nextplorer setup               # serveur, identifiants, montage permanent (systemd)
+C'est tout — `install.sh` installe la commande `nextplorer` (via
+`pip install --user .`, donc ça marche quel que soit le nom du dossier où tu
+as cloné le dépôt, pas de lien symbolique à créer à la main) et enchaîne
+directement sur `nextplorer setup`.
+
+Une fois configuré, deux commandes en plus (à ne lancer qu'une fois) pour
+finir l'intégration :
+
+```sh
 nextplorer install-integration # clic-droit dans Nautilus (GNOME) ou Dolphin (KDE)
 nextplorer install-handler     # ouvrir les liens Nextcloud localement
 ```
-
-`pip install --user .` place directement une commande `nextplorer`
-fonctionnelle dans ton `PATH` (via `~/.local/bin`, déjà inclus sur la
-plupart des bureaux Linux) — pas de lien symbolique à créer à la main, ça
-marche quel que soit le nom du dossier où tu as cloné le dépôt.
 
 `nextplorer setup` crée un remote rclone dédié, un service systemd --user qui
 monte automatiquement au démarrage, et écrit

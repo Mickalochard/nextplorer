@@ -45,16 +45,19 @@ at once, and one-click public share links.
 ```sh
 git clone <this repo>
 cd nextplorer
-python3 -m pip install --user .
+./install.sh
+```
 
-nextplorer setup               # server URL, credentials, permanent mount (systemd)
+That's it — `install.sh` installs the `nextplorer` command (via `pip install
+--user .`, so it works regardless of where you cloned the repo — no manual
+symlinking) and immediately walks you through `nextplorer setup`.
+
+Once set up, two more one-off commands finish the integration:
+
+```sh
 nextplorer install-integration # right-click menu in Nautilus (GNOME) or Dolphin (KDE)
 nextplorer install-handler     # make nextplorer handle Nextcloud links
 ```
-
-`pip install --user .` puts a working `nextplorer` command on your `PATH`
-(via `~/.local/bin`, which most Linux desktops already include) — no manual
-symlinking, works regardless of where you cloned the repo.
 
 `nextplorer setup` asks for your Nextcloud server URL, username, and an
 [app password](https://docs.nextcloud.com/server/latest/user_manual/en/session_management.html#managing-devices)
